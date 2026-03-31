@@ -85,7 +85,7 @@ HTTP() {
   printf "\033[?25l"
   for i in $(seq 1 20); do
     Animate
-    forward=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' "$LOGFILE" 2>/dev/null)
+    forward=$(grep -o '"url":"https://[-a-z0-9]*\.trycloudflare\.com"' "$LOGFILE" 2>/dev/null | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com')
     if [[ -n "$forward" ]]; then
       printf "\033[?25h"
       if [[ $1 == '-s' || $1 == '--silent' ]]; then
