@@ -36,10 +36,10 @@ git clone https://github.com/tu-usuario/build-cloudflare-termux
 cd build-cloudflare-termux
 
 # 2. Dar permisos
-chmod +x cloudflare.sh setup.sh
+chmod +x cloudflare.sh setup
 
 # 3. Ejecutar setup como root
-sudo bash setup.sh
+sudo bash setup
 ```
 
 ### En Termux (Android)
@@ -50,10 +50,10 @@ git clone https://github.com/tu-usuario/build-cloudflare-termux
 cd build-cloudflare-termux
 
 # 2. Dar permisos
-chmod +x cloudflare.sh setup.sh
+chmod +x cloudflare.sh setup
 
 # 3. Ejecutar setup (sin sudo)
-bash setup.sh
+bash setup
 ```
 
 El setup instalará automáticamente `cloudflared` y dejará el comando `cloudflare` disponible de forma global en tu sistema.
