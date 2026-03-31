@@ -1,0 +1,181 @@
+#!/usr/bin/env bash
+# By: TechGenius
+# Setup script - instala cloudflared y configura el comando cloudflare
+
+OS=$(uname -o)
+ARCH=$(uname -m)
+
+# Colores
+GREEN="\033[1;32m"
+RED="\033[1;31m"
+BLUE="\033[1;34m"
+YELLOW="\033[1;33m"
+WHITE="\033[1;37m"
+RESET="\033[00m"
+
+# Detectar Termux primero que todo
+if [[ -n "$TERMUX_VERSION" || "$PREFIX" == *"termux"* || "$HOME" == *"com.termux"* ]]; then
+  IS_TERMUX=true
+  BIN_PATH="$PREFIX/bin"
+  SHARE_PATH="$PREFIX/share"
+else
+  IS_TERMUX=false
+  BIN_PATH="/usr/local/bin"
+  SHARE_PATH="/usr/share"
+fi
+
+banner_setup() {
+  printf "${YELLOW}"
+  printf "  ████████╗███████╗ ██████╗██╗  ██╗\n"
+  printf "  ╚══██╔══╝██╔════╝██╔════╝██║  ██║\n"
+  printf "     ██║   █████╗  ██║     ███████║\n"
+  printf "     ██║   ██╔══╝  ██║     ██╔══██║\n"
+  printf "     ██║   ███████╗╚██████╗██║  ██║\n"
+  printf "     ╚═╝   ╚══════╝ ╚═════╝╚═╝  ╚═╝\n"
+  printf "  ██████╗ ███████╗███╗   ██╗██╗██╗   ██╗███████╗\n"
+  printf "  ██╔════╝██╔════╝████╗  ██║██║██║   ██║██╔════╝\n"
+  printf "  ██║  ███╗█████╗  ██╔██╗ ██║██║██║   ██║███████╗\n"
+  printf "  ██║   ██║██╔══╝  ██║╚██╗██║██║██║   ██║╚════██║\n"
+  printf "  ╚██████╔╝███████╗██║ ╚████║██║╚██████╔╝███████║\n"
+  printf "   ╚═════╝ ╚══════╝╚═╝  ╚═══╝╚═╝ ╚═════╝ ╚══════╝\n"
+  printf "${RESET}\n"
+  printf "${BLUE}  [_____________ TechGenius Setup _____________]${RESET}\n\n"
+  if $IS_TERMUX; then
+    printf "${YELLOW}  Modo: Termux${RESET}\n\n"
+  else
+    printf "${YELLOW}  Modo: Linux${RESET}\n\n"
+  fi
+}
+
+check_internet() {
+  printf "${BLUE}  Verificando conexión a internet...${RESET}\n"
+  curl -s --max-time 5 google.com > /dev/null 2>&1
+  if [[ $? != 0 ]]; then
+    printf "${RED}  [!] Sin conexión a internet. Verifica tu red.${RESET}\n"
+    exit 1
+  fi
+  printf "${GREEN}  [✓] Conexión OK${RESET}\n"
+}
+
+check_permissions() {
+  # Termux nunca necesita root ni sudo
+  if $IS_TERMUX; then
+    printf "${GREEN}  [✓] Termux detectado, sin necesidad de root${RESET}\n"
+    return 0
+  fi
+
+  # Windows
+  if [[ ${OS^^} == *'MSYS'* || ${OS^^} == *'WINDOWS'* ]]; then
+    adminPerm=$(net user administrator | grep active | awk '{print $NF}')
+    case ${adminPerm,,} in
+      yes) opposite="no" ;;
+      no)  opposite="yes" ;;
+      *)   printf "${RED}  [!] No es posible continuar.${RESET}\n"; exit 1 ;;
+    esac
+    net user administrator /active:${opposite} > /dev/null 2>&1
+    adminPerm=$(net user administrator | grep active | awk '{print $NF}')
+    if [[ ${adminPerm,,} != "${opposite}" ]]; then
+      printf "${RED}  [!] Ejecuta como Administrador.${RESET}\n"
+      exit 1
+    fi
+  # Linux normal
+  elif [[ ${OS^^} == *'LINUX'* ]]; then
+    if [[ "$EUID" -ne 0 ]]; then
+      printf "${RED}  [!] Ejecuta como root: sudo bash setup${RESET}\n"
+      exit 1
+    fi
+    printf "${GREEN}  [✓] Permisos root OK${RESET}\n"
+  fi
+}
+
+install_cloudflared() {
+  printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
+
+  # Verificar si ya está instalado y funciona bien
+  if hash cloudflared 2>/dev/null; then
+    ver=$(cloudflared --version 2>&1)
+    if [[ "$ver" == *"version"* ]]; then
+      printf "${GREEN}  [✓] cloudflared ya instalado: $ver${RESET}\n"
+      return 0
+    else
+      printf "${YELLOW}  [!] cloudflared corrupto, reinstalando...${RESET}\n"
+      rm -f "$BIN_PATH/cloudflared" 2>/dev/null
+    fi
+  fi
+
+  printf "${BLUE}  Instalando cloudflared...${RESET}\n"
+
+  if $IS_TERMUX; then
+    # Intentar con pkg primero
+    printf "${BLUE}  Intentando con pkg...${RESET}\n"
+    pkg update -y > /dev/null 2>&1
+    pkg install cloudflared -y > /dev/null 2>&1
+
+    # Si pkg falla, descarga manual según arquitectura
+    if ! hash cloudflared 2>/dev/null; then
+      printf "${YELLOW}  pkg no disponible, descargando manualmente...${RESET}\n"
+      case $ARCH in
+        aarch64) URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" ;;
+        armv7l)  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm" ;;
+        x86_64)  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" ;;
+        i686)    URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-386" ;;
+        *)       printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
+      esac
+      curl -L --progress-bar "$URL" -o "$BIN_PATH/cloudflared"
+      chmod +x "$BIN_PATH/cloudflared"
+    fi
+
+  else
+    # Linux normal
+    case $ARCH in
+      x86_64)  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" ;;
+      aarch64) URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" ;;
+      armv7l)  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm" ;;
+      i686)    URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-386" ;;
+      *)       printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
+    esac
+    curl -L --progress-bar "$URL" -o "$BIN_PATH/cloudflared"
+    chmod +x "$BIN_PATH/cloudflared"
+  fi
+
+  # Verificar instalación final
+  if hash cloudflared 2>/dev/null; then
+    printf "${GREEN}  [✓] cloudflared instalado: $(cloudflared --version)${RESET}\n"
+  else
+    printf "${RED}  [!] Falló la instalación de cloudflared${RESET}\n"
+    exit 1
+  fi
+}
+
+install_cloudflare_cmd() {
+  printf "\n${BLUE}  Configurando comando 'cloudflare'...${RESET}\n"
+
+  if [[ -f "./cloudflare" ]]; then
+    cp ./cloudflare "$BIN_PATH/cloudflare"
+    chmod +x "$BIN_PATH/cloudflare"
+    printf "${GREEN}  [✓] Comando instalado en $BIN_PATH/cloudflare${RESET}\n"
+  else
+    printf "${RED}  [!] Archivo 'cloudflare' no encontrado en esta carpeta.${RESET}\n"
+    printf "${YELLOW}  Asegúrate de que 'cloudflare' y 'setup' estén juntos.${RESET}\n"
+    exit 1
+  fi
+}
+
+main() {
+  clear
+  banner_setup
+  check_permissions
+  check_internet
+
+  printf "\n${YELLOW}  Iniciando instalación...${RESET}\n"
+
+  install_cloudflared
+  install_cloudflare_cmd
+
+  printf "\n${GREEN}  ╔══════════════════════════════════════╗${RESET}\n"
+  printf "${GREEN}  ║   Instalación completada con éxito!  ║${RESET}\n"
+  printf "${GREEN}  ╚══════════════════════════════════════╝${RESET}\n\n"
+  printf "${WHITE}  Usa: ${YELLOW}cloudflare --help${WHITE} para ver el menú${RESET}\n\n"
+}
+
+main
