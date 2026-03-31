@@ -57,6 +57,14 @@ Animate() {
 }
 
 HTTP() {
+  local LOGFILE
+
+  if $IS_TERMUX; then
+    LOGFILE="$(pwd)/cloudflare-log"
+  else
+    LOGFILE="/tmp/cloudflare-log"
+  fi
+
   # Matar instancias previas
   pkill -f cloudflared 2>/dev/null
   sleep 1
@@ -64,10 +72,16 @@ HTTP() {
 
   printf "${S4}  Iniciando túnel en puerto ${ar2}...${R0}\n"
 
-  # Lanzar cloudflared — Termux no necesita termux-chroot en versiones modernas
-  cloudflared tunnel --url "http://127.0.0.1:${ar2}" --logfile "$LOGFILE" > /dev/null 2>&1 &
+  # Lanzar cloudflared — sintaxis exacta de para Termux
+  if $IS_TERMUX; then
+    termux-chroot cloudflared -url 127.0.0.1:${ar2} --logfile "$LOGFILE" > /dev/null 2>&1 &
+    sleep 2
+  else
+    cloudflared tunnel --url "http://127.0.0.1:${ar2}" --logfile "$LOGFILE" > /dev/null 2>&1 &
+    sleep 5
+  fi
 
-  # Esperar y capturar URL con reintentos
+  # Esperar y capturar URL
   printf "\033[?25l"
   for i in $(seq 1 20); do
     Animate
