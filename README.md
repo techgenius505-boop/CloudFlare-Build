@@ -16,44 +16,34 @@
 
 ---
 
-## 📁 Estructura del proyecto
-
-```
-build-cloudflare-termux/
-  ├── cloudflare.sh   → Script principal del túnel
-  └── setup.sh        → Script de instalación
-```
-
----
-
 ## 🚀 Instalación
 
 ### En Linux
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/build-cloudflare-termux
-cd build-cloudflare-termux
+git clone https://github.com/techgenius505-boop/CloudFlare-Build.git
+cd CloudFlare-Build
 
 # 2. Dar permisos
-chmod +x cloudflare.sh setup.sh
+chmod +x cloudflare setup
 
 # 3. Ejecutar setup como root
-sudo bash setup.sh
+sudo bash setup
 ```
 
 ### En Termux (Android)
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/build-cloudflare-termux
-cd build-cloudflare-termux
+git clone https://github.com/techgenius505-boop/CloudFlare-Build.git
+cd CloudFlare-Build
 
 # 2. Dar permisos
-chmod +x cloudflare.sh setup.sh
+chmod +x cloudflare setup
 
 # 3. Ejecutar setup (sin sudo)
-bash setup.sh
+bash setup
 ```
 
 El setup instalará automáticamente `cloudflared` y dejará el comando `cloudflare` disponible de forma global en tu sistema.
