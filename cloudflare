@@ -65,9 +65,10 @@ HTTP() {
     LOGFILE="/tmp/cloudflare-log"
   fi
 
-  # Matar instancias previas
+  # Matar instancias previas más agresivamente
   pkill -f cloudflared 2>/dev/null
-  sleep 1
+  pkill -9 -f cloudflared 2>/dev/null
+  sleep 2
   rm -f "$LOGFILE"
 
   printf "${S4}  Iniciando túnel en puerto ${ar2}...${R0}\n"
@@ -81,15 +82,15 @@ HTTP() {
     sleep 3
   fi
 
-  # Esperar y capturar URL — soporta formato JSON y texto plano
+  # Esperar y capturar URL
   printf "\033[?25l"
   for i in $(seq 1 20); do
     Animate
 
-    # Intentar formato JSON primero
+    # Formato JSON
     forward=$(grep -o '"url":"https://[-a-z0-9]*\.trycloudflare\.com"' "$LOGFILE" 2>/dev/null | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com')
 
-    # Si no encontró, intentar texto plano
+    # Formato texto plano
     if [[ -z "$forward" ]]; then
       forward=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' "$LOGFILE" 2>/dev/null)
     fi
