@@ -57,21 +57,44 @@ Animate() {
 }
 
 HTTP() {
-  # Matar instancias previas
+  local LOGFILE
+
+  if $IS_TERMUX; then
+    LOGFILE="$(pwd)/cloudflare-log"
+  else
+    LOGFILE="/tmp/cloudflare-log"
+  fi
+
+  # Matar instancias previas más agresivamente
   pkill -f cloudflared 2>/dev/null
-  sleep 1
+  pkill -9 -f cloudflared 2>/dev/null
+  sleep 2
   rm -f "$LOGFILE"
 
   printf "${S4}  Iniciando túnel en puerto ${ar2}...${R0}\n"
 
-  # Lanzar cloudflared — Termux no necesita termux-chroot en versiones modernas
-  cloudflared tunnel --url "http://127.0.0.1:${ar2}" --logfile "$LOGFILE" > /dev/null 2>&1 &
+  # Lanzar cloudflared
+  if $IS_TERMUX; then
+    cloudflared -url 127.0.0.1:${ar2} --logfile "$LOGFILE" > /dev/null 2>&1 &
+    sleep 2
+  else
+    cloudflared tunnel --url "http://127.0.0.1:${ar2}" --logfile "$LOGFILE" > /dev/null 2>&1 &
+    sleep 3
+  fi
 
-  # Esperar y capturar URL con reintentos
+  # Esperar y capturar URL
   printf "\033[?25l"
   for i in $(seq 1 20); do
     Animate
-    forward=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' "$LOGFILE" 2>/dev/null)
+
+    # Formato JSON
+    forward=$(grep -o '"url":"https://[-a-z0-9]*\.trycloudflare\.com"' "$LOGFILE" 2>/dev/null | grep -o 'https://[-a-z0-9]*\.trycloudflare\.com')
+
+    # Formato texto plano
+    if [[ -z "$forward" ]]; then
+      forward=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' "$LOGFILE" 2>/dev/null)
+    fi
+
     if [[ -n "$forward" ]]; then
       printf "\033[?25h"
       if [[ $1 == '-s' || $1 == '--silent' ]]; then
