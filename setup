@@ -91,45 +91,52 @@ check_permissions() {
 install_cloudflared() {
   printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
 
-  # Verificar si ya está instalado y funciona bien
-  if hash cloudflared 2>/dev/null; then
-    ver=$(cloudflared --version 2>&1)
-    if [[ "$ver" == *"version"* ]]; then
-      printf "${GREEN}  [✓] cloudflared ya instalado: $ver${RESET}\n"
+  if $IS_TERMUX; then
+    # En Termux siempre verificar que sea la version correcta
+    local CURRENT
+    CURRENT=$(cloudflared --version 2>&1 | grep -o '[0-9]*\.[0-9]*\.[0-9]*' | head -1)
+
+    if [[ "$CURRENT" == "2021.10.3" ]]; then
+      printf "${GREEN}  [✓] cloudflared versión correcta: $CURRENT${RESET}\n"
       return 0
     else
-      printf "${YELLOW}  [!] cloudflared corrupto, reinstalando...${RESET}\n"
+      printf "${YELLOW}  [!] Versión incorrecta ($CURRENT), instalando 2021.10.3...${RESET}\n"
       rm -f "$BIN_PATH/cloudflared" 2>/dev/null
+      pkg uninstall cloudflared -y > /dev/null 2>&1
+
+      local VERSION="2021.10.3"
+      case $ARCH in
+        aarch64|armv8)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-arm64" ;;
+        armv7l|aarch32)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-arm" ;;
+        x86_64|amd64)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-amd64" ;;
+        i686|x86)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-386" ;;
+        *)
+          printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
+      esac
+
+      cd $HOME
+      wget "$URL" -O cloudflared
+      chmod +x cloudflared
+      mv cloudflared "$BIN_PATH/cloudflared"
     fi
-  fi
-
-  printf "${BLUE}  Instalando cloudflared...${RESET}\n"
-
-  if $IS_TERMUX; then
-    # Termux usa version 2021.10.3 que no tiene problemas de DNS
-    local VERSION="2021.10.3"
-    printf "${BLUE}  Descargando cloudflared v${VERSION} para Termux...${RESET}\n"
-
-    case $ARCH in
-      aarch64|armv8)
-        URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-arm64" ;;
-      armv7l|aarch32)
-        URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-arm" ;;
-      x86_64|amd64)
-        URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-amd64" ;;
-      i686|x86)
-        URL="https://github.com/cloudflare/cloudflared/releases/download/${VERSION}/cloudflared-linux-386" ;;
-      *)
-        printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
-    esac
-
-    cd $HOME
-    wget "$URL" -O cloudflared
-    chmod +x cloudflared
-    mv cloudflared "$BIN_PATH/cloudflared"
 
   else
     # Linux normal usa la ultima version
+    if hash cloudflared 2>/dev/null; then
+      ver=$(cloudflared --version 2>&1)
+      if [[ "$ver" == *"version"* ]]; then
+        printf "${GREEN}  [✓] cloudflared ya instalado: $ver${RESET}\n"
+        return 0
+      else
+        printf "${YELLOW}  [!] cloudflared corrupto, reinstalando...${RESET}\n"
+        rm -f "$BIN_PATH/cloudflared" 2>/dev/null
+      fi
+    fi
+
     case $ARCH in
       x86_64)  URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64" ;;
       aarch64) URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64" ;;
@@ -137,6 +144,8 @@ install_cloudflared() {
       i686)    URL="https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-386" ;;
       *)       printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
     esac
+
+    printf "${BLUE}  Descargando cloudflared...${RESET}\n"
     curl -L --progress-bar "$URL" -o "$BIN_PATH/cloudflared"
     chmod +x "$BIN_PATH/cloudflared"
   fi
