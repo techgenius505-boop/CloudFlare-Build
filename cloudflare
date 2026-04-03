@@ -18,12 +18,15 @@ R0="\033[00m" D0="\033[2m"
 if [[ -n "$TERMUX_VERSION" || "$PREFIX" == *"termux"* || "$HOME" == *"com.termux"* ]]; then
   IS_TERMUX=true
   BIN_PATH="$PREFIX/bin"
-  LOGFILE="$HOME/cloudflare-log"
+  LOGFILE="$(pwd)/cloudflare-log"
 else
   IS_TERMUX=false
   BIN_PATH="/usr/local/bin"
   LOGFILE="/tmp/cloudflare-log"
 fi
+
+# Version requerida para Termux
+REQUIRED_VERSION="2021.10.3"
 
 wait_short() { sleep 0.02; }
 wait_long()  { sleep 0.1; }
@@ -56,16 +59,38 @@ Animate() {
   printf "${S2}  Generating Link${S5}..... ${R0}\r"; wait_long
 }
 
-HTTP() {
-  local LOGFILE
-
+check_version() {
   if $IS_TERMUX; then
-    LOGFILE="$(pwd)/cloudflare-log"
-  else
-    LOGFILE="/tmp/cloudflare-log"
-  fi
+    local CURRENT
+    CURRENT=$(cloudflared --version 2>&1 | grep -o '[0-9]*\.[0-9]*\.[0-9]*' | head -1)
 
-  # Matar instancias previas más agresivamente
+    if [[ "$CURRENT" != "$REQUIRED_VERSION" ]]; then
+      printf "${YELLOW}  [!] Versión incorrecta ($CURRENT), restaurando $REQUIRED_VERSION...${R0}\n"
+
+      case $ARCH in
+        aarch64|armv8)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${REQUIRED_VERSION}/cloudflared-linux-arm64" ;;
+        armv7l|aarch32)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${REQUIRED_VERSION}/cloudflared-linux-arm" ;;
+        x86_64|amd64)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${REQUIRED_VERSION}/cloudflared-linux-amd64" ;;
+        i686|x86)
+          URL="https://github.com/cloudflare/cloudflared/releases/download/${REQUIRED_VERSION}/cloudflared-linux-386" ;;
+        *)
+          printf "${S1}  [!] Arquitectura no soportada: $ARCH${R0}\n"; exit 1 ;;
+      esac
+
+      cd $HOME
+      wget "$URL" -O cloudflared > /dev/null 2>&1
+      chmod +x cloudflared
+      mv cloudflared "$BIN_PATH/cloudflared"
+      printf "${S2}  [✓] Versión correcta restaurada${R0}\n\n"
+    fi
+  fi
+}
+
+HTTP() {
+  # Matar instancias previas
   pkill -f cloudflared 2>/dev/null
   pkill -9 -f cloudflared 2>/dev/null
   sleep 2
@@ -114,13 +139,12 @@ HTTP() {
 }
 
 check_root() {
-  # Termux nunca necesita root
   if $IS_TERMUX; then
     return 0
   fi
   if [[ ${OS^^} == "GNU/LINUX" ]]; then
     if [[ "$EUID" -ne 0 ]]; then
-      printf "${S1}  [!] Ejecuta como root: sudo bash cloudflare${R0}\n"
+      printf "${S1}  [!] Ejecuta como root: sudo cloudflare${R0}\n"
       exit 1
     fi
   fi
@@ -130,11 +154,11 @@ update() {
   printf "${S2}  Actualizando...${R0}\n"
   if $IS_TERMUX; then
     rm -f "$BIN_PATH/cloudflare" 2>/dev/null
-    cp ./cloudflare "$BIN_PATH/cloudflare" 2>/dev/null
+    cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cloudflare" "$BIN_PATH/cloudflare" 2>/dev/null
     chmod +x "$BIN_PATH/cloudflare"
   else
     sudo rm -f "$BIN_PATH/cloudflare" 2>/dev/null
-    sudo cp ./cloudflare "$BIN_PATH/cloudflare" 2>/dev/null
+    sudo cp "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/cloudflare" "$BIN_PATH/cloudflare" 2>/dev/null
     sudo chmod +x "$BIN_PATH/cloudflare"
   fi
   printf "${S2}  [✓] Actualización completada!${R0}\n"
@@ -159,6 +183,7 @@ help() {
 }
 
 main() {
+  check_version
   check_root
 
   if [[ -z "$ar1" ]]; then
