@@ -162,7 +162,14 @@ install_cloudflared() {
 install_cloudflare_cmd() {
   printf "\n${BLUE}  Configurando comando 'cloudflare'...${RESET}\n"
 
-  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  # En Termux BASH_SOURCE no funciona bien, usar PWD directamente
+  if $IS_TERMUX; then
+    SCRIPT_DIR="$(pwd)"
+  else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  fi
+
+  printf "${BLUE}  Buscando en: $SCRIPT_DIR${RESET}\n"
 
   if [[ -f "$SCRIPT_DIR/cloudflare" ]]; then
     cp "$SCRIPT_DIR/cloudflare" "$BIN_PATH/cloudflare"
