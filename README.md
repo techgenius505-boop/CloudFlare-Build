@@ -52,6 +52,8 @@ El setup instalará automáticamente `cloudflared` y dejará el comando `cloudfl
 
 ## 📖 Uso
 
+### Activar el Hostpot(donde comparten datos moviles o tambien conocido como Zona Wifi personal)
+
 ### Iniciar un túnel
 
 ```bash
