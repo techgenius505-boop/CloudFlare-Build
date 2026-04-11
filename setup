@@ -162,24 +162,22 @@ install_cloudflared() {
 install_cloudflare_cmd() {
   printf "\n${BLUE}  Configurando comando 'cloudflare'...${RESET}\n"
 
-  # En Termux BASH_SOURCE no funciona bien, usar PWD directamente
-  if $IS_TERMUX; then
-    SCRIPT_DIR="$(pwd)"
+  # Buscar el archivo cloudflare en varias ubicaciones
+  if [[ -f "$(pwd)/cloudflare" ]]; then
+    CLOUDFLARE_FILE="$(pwd)/cloudflare"
+  elif [[ -f "$HOME/CloudFlare-Build/cloudflare" ]]; then
+    CLOUDFLARE_FILE="$HOME/CloudFlare-Build/cloudflare"
+  elif [[ -f "$(dirname $0)/cloudflare" ]]; then
+    CLOUDFLARE_FILE="$(dirname $0)/cloudflare"
   else
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  fi
-
-  printf "${BLUE}  Buscando en: $SCRIPT_DIR${RESET}\n"
-
-  if [[ -f "$SCRIPT_DIR/cloudflare" ]]; then
-    cp "$SCRIPT_DIR/cloudflare" "$BIN_PATH/cloudflare"
-    chmod +x "$BIN_PATH/cloudflare"
-    printf "${GREEN}  [✓] Comando instalado en $BIN_PATH/cloudflare${RESET}\n"
-  else
-    printf "${RED}  [!] Archivo 'cloudflare' no encontrado en $SCRIPT_DIR${RESET}\n"
+    printf "${RED}  [!] Archivo 'cloudflare' no encontrado.${RESET}\n"
     printf "${YELLOW}  Asegúrate de que 'cloudflare' y 'setup' estén juntos.${RESET}\n"
     exit 1
   fi
+
+  cp "$CLOUDFLARE_FILE" "$BIN_PATH/cloudflare"
+  chmod +x "$BIN_PATH/cloudflare"
+  printf "${GREEN}  [✓] Comando instalado en $BIN_PATH/cloudflare${RESET}\n"
 }
 
 main() {
