@@ -67,7 +67,6 @@ check_version() {
     if [[ "$CURRENT" != "2021.10.3" ]]; then
       printf "${YELLOW}  [!] Versión incorrecta ($CURRENT), corrigiendo...${R0}\n"
 
-      # Desinstalar cualquier version existente
       pkg uninstall cloudflared -y > /dev/null 2>&1
       rm -f "$BIN_PATH/cloudflared" 2>/dev/null
       rm -f $HOME/cloudflared 2>/dev/null
@@ -90,7 +89,10 @@ check_version() {
       wget "$URL" -O cloudflared > /dev/null 2>&1
       chmod +x cloudflared
       mv cloudflared "$BIN_PATH/cloudflared"
+      chmod 555 "$BIN_PATH/cloudflared"  # ← evita que se sobreescriba
       printf "${S2}  [✓] Versión 2021.10.3 instalada correctamente${R0}\n\n"
+    else
+      chmod 555 "$BIN_PATH/cloudflared"  # ← asegurar permisos aunque ya esté
     fi
   fi
 }
@@ -106,7 +108,7 @@ HTTP() {
 
   # Lanzar cloudflared
   if $IS_TERMUX; then
-    cloudflared -url 127.0.0.1:${ar2} --logfile "$LOGFILE" > /dev/null 2>&1 &
+    cloudflared --no-autoupdate -url 127.0.0.1:${ar2} --logfile "$LOGFILE" > /dev/null 2>&1 &
     sleep 2
   else
     cloudflared tunnel --url "http://127.0.0.1:${ar2}" --logfile "$LOGFILE" > /dev/null 2>&1 &
