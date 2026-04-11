@@ -162,7 +162,7 @@ install_cloudflared() {
 install_cloudflare_cmd() {
   printf "\n${BLUE}  Configurando comando 'cloudflare'...${RESET}\n"
 
-  # Buscar el archivo cloudflare en varias ubicaciones
+  # Buscar el archivo cloudflare
   if [[ -f "$(pwd)/cloudflare" ]]; then
     CLOUDFLARE_FILE="$(pwd)/cloudflare"
   elif [[ -f "$HOME/CloudFlare-Build/cloudflare" ]]; then
@@ -175,8 +175,15 @@ install_cloudflare_cmd() {
     exit 1
   fi
 
+  # Corregir CRLF antes de copiar
+  sed -i 's/\r//' "$CLOUDFLARE_FILE"
+
   cp "$CLOUDFLARE_FILE" "$BIN_PATH/cloudflare"
   chmod +x "$BIN_PATH/cloudflare"
+
+  # Corregir CRLF en el destino también
+  sed -i 's/\r//' "$BIN_PATH/cloudflare"
+
   printf "${GREEN}  [✓] Comando instalado en $BIN_PATH/cloudflare${RESET}\n"
 }
 
