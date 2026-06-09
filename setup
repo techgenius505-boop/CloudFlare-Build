@@ -88,8 +88,54 @@ check_permissions() {
   fi
 }
 
+# Funcion de descarga con reintentos y fallback
+download_file() {
+  local URL=$1
+  local OUTPUT=$2
+  local INTENTOS=3
+
+  # Intentar con wget
+  if hash wget 2>/dev/null; then
+    for i in $(seq 1 $INTENTOS); do
+      printf "${BLUE}  Descargando... intento $i/$INTENTOS${RESET}\n"
+      wget --tries=3 --timeout=30 "$URL" -O "$OUTPUT"
+      if [[ $? == 0 && -s "$OUTPUT" ]]; then
+        return 0
+      fi
+      sleep 2
+    done
+  fi
+
+  # Fallback a curl
+  if hash curl 2>/dev/null; then
+    printf "${YELLOW}  wget falló, intentando con curl...${RESET}\n"
+    for i in $(seq 1 $INTENTOS); do
+      printf "${BLUE}  Descargando... intento $i/$INTENTOS${RESET}\n"
+      curl -L --retry 3 --connect-timeout 30 "$URL" -o "$OUTPUT"
+      if [[ $? == 0 && -s "$OUTPUT" ]]; then
+        return 0
+      fi
+      sleep 2
+    done
+  fi
+
+  return 1
+}
+
 install_cloudflared() {
-  printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
+    printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
+
+  # Asegurar herramientas de descarga en Termux
+  if $IS_TERMUX; then
+    if ! hash wget 2>/dev/null; then
+      printf "${YELLOW}  Instalando wget...${RESET}\n"
+      pkg install wget -y > /dev/null 2>&1
+    fi
+    if ! hash curl 2>/dev/null; then
+      printf "${YELLOW}  Instalando curl...${RESET}\n"
+      pkg install curl -y > /dev/null 2>&1
+    fi
+  fi
 
   if $IS_TERMUX; then
     # En Termux siempre verificar que sea la version correcta
@@ -98,11 +144,15 @@ install_cloudflared() {
 
     if [[ "$CURRENT" == "2021.10.3" ]]; then
       printf "${GREEN}  [✓] cloudflared versión correcta: $CURRENT${RESET}\n"
+      chmod 555 "$BIN_PATH/cloudflared"
       return 0
     else
       printf "${YELLOW}  [!] Versión incorrecta ($CURRENT), instalando 2021.10.3...${RESET}\n"
-      rm -f "$BIN_PATH/cloudflared" 2>/dev/null
+
+      # Desinstalar version actual
       pkg uninstall cloudflared -y > /dev/null 2>&1
+      rm -f "$BIN_PATH/cloudflared" 2>/dev/null
+      rm -f $HOME/cloudflared 2>/dev/null
 
       local VERSION="2021.10.3"
       case $ARCH in
@@ -118,10 +168,17 @@ install_cloudflared() {
           printf "${RED}  [!] Arquitectura no soportada: $ARCH${RESET}\n"; exit 1 ;;
       esac
 
+      # Descargar con reintentos y fallback
       cd $HOME
-      wget "$URL" -O cloudflared
+      download_file "$URL" "cloudflared"
+      if [[ $? != 0 ]]; then
+        printf "${RED}  [!] Falló la descarga. Verifica tu conexión.${RESET}\n"
+        exit 1
+      fi
+
       chmod +x cloudflared
       mv cloudflared "$BIN_PATH/cloudflared"
+      chmod 555 "$BIN_PATH/cloudflared"
     fi
 
   else
@@ -146,7 +203,11 @@ install_cloudflared() {
     esac
 
     printf "${BLUE}  Descargando cloudflared...${RESET}\n"
-    curl -L --progress-bar "$URL" -o "$BIN_PATH/cloudflared"
+    download_file "$URL" "$BIN_PATH/cloudflared"
+    if [[ $? != 0 ]]; then
+      printf "${RED}  [!] Falló la descarga. Verifica tu conexión.${RESET}\n"
+      exit 1
+    fi
     chmod +x "$BIN_PATH/cloudflared"
   fi
 
@@ -162,7 +223,7 @@ install_cloudflared() {
 install_cloudflare_cmd() {
   printf "\n${BLUE}  Configurando comando 'cloudflare'...${RESET}\n"
 
-  # Buscar el archivo cloudflare
+  # Buscar el archivo cloudflare en varias ubicaciones
   if [[ -f "$(pwd)/cloudflare" ]]; then
     CLOUDFLARE_FILE="$(pwd)/cloudflare"
   elif [[ -f "$HOME/CloudFlare-Build/cloudflare" ]]; then
