@@ -123,7 +123,19 @@ download_file() {
 }
 
 install_cloudflared() {
-  printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
+    printf "\n${BLUE}  Verificando cloudflared...${RESET}\n"
+
+  # Asegurar herramientas de descarga en Termux
+  if $IS_TERMUX; then
+    if ! hash wget 2>/dev/null; then
+      printf "${YELLOW}  Instalando wget...${RESET}\n"
+      pkg install wget -y > /dev/null 2>&1
+    fi
+    if ! hash curl 2>/dev/null; then
+      printf "${YELLOW}  Instalando curl...${RESET}\n"
+      pkg install curl -y > /dev/null 2>&1
+    fi
+  fi
 
   if $IS_TERMUX; then
     # En Termux siempre verificar que sea la version correcta
